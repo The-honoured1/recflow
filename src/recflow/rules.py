@@ -8,13 +8,12 @@ class RulesEngine:
         }
         self.recency_half_life_days = 30.0
         self.property_boosts = []
+        self.active_algorithm = "sql_cooccurrence"
         
     def add_event_weight(self, event_type: str, weight: float):
-        """Map generic event types to exact scores dynamically."""
         self.event_weights[event_type] = weight
         
     def set_recency_decay(self, half_life_days: float):
-        """Determine how quickly old user interests decay."""
         if half_life_days <= 0:
             raise ValueError("Half life must be > 0 days")
         self.recency_half_life_days = half_life_days
@@ -22,14 +21,20 @@ class RulesEngine:
     def add_metadata_boost(self, key: str, value: str, multiplier: float):
         self.property_boosts.append({"key": key, "value": value, "multiplier": multiplier})
 
+    def set_algorithm(self, algo_name: str):
+        self.active_algorithm = algo_name
+
     def to_dict(self):
         return {
+            "active_algorithm": self.active_algorithm,
             "event_weights": self.event_weights,
             "recency_half_life_days": self.recency_half_life_days,
             "property_boosts": self.property_boosts
         }
         
     def from_dict(self, data: dict):
+        if "active_algorithm" in data:
+            self.active_algorithm = data["active_algorithm"]
         if "event_weights" in data:
             self.event_weights = data["event_weights"]
         if "recency_half_life_days" in data:
