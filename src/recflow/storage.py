@@ -169,3 +169,73 @@ class SQLiteStorage(BaseStorage):
             conn.execute("DELETE FROM interactions")
             conn.execute("DELETE FROM item_metadata")
             conn.commit()
+
+
+try:
+    import redis
+except ImportError:
+    redis = None
+
+class RedisStorage(BaseStorage):
+    """
+    Distributed robust storage using Redis lists and sorted sets.
+    Capable of scaling synchronously array distribution.
+    """
+    def __init__(self, redis_url="redis://localhost:6379/0", prefix="recflow"):
+        if redis is None:
+            raise ImportError("Must install redis to use RedisStorage (pip install redis or recflow[redis])")
+        self.r = redis.from_url(redis_url, decode_responses=True)
+        self.pfx = prefix
+
+    def _user_hist_key(self, uid): return f"{self.pfx}:u:hist:{uid}"
+    def _item_meta_key(self, iid): return f"{self.pfx}:i:meta:{iid}"
+    def _item_int_key(self, iid): return f"{self.pfx}:i:int:{iid}"
+    def _pop_key(self): return f"{self.pfx}:global:pop"
+
+    def record_interaction(self, user_id: str, item_id: str, event_type: str, timestamp: float):
+        payload = json.dumps({
+            "item_id": item_id, 
+            "user_id": user_id, 
+            "event_type": event_type, 
+            "timestamp": timestamp
+        })
+        with self.r.pipeline() as pipe:
+            pipe.lpush(self._user_hist_key(user_id), payload)
+            pipe.ltrim(self._user_hist_key(user_id), 0, 999) # keep list size bounded
+            pipe.lpush(self._item_int_key(item_id), payload)
+            pipe.ltrim(self._item_int_key(item_id), 0, 999)
+            pipe.zincrby(self._pop_key(), 1, item_id)
+            pipe.execute()
+
+    def update_metadata(self, item_id: str, metadata_json: str):
+        self.r.set(self._item_meta_key(item_id), metadata_json)
+        # initialize popularity implicitly if completely new
+        self.r.zadd(self._pop_key(), {item_id: 0}, nx=True)
+
+    def get_user_history(self, user_id: str, limit: int = 100) -> List[Dict]:
+        items = self.r.lrange(self._user_hist_key(user_id), 0, limit - 1)
+        return [json.loads(i) for i in items]
+
+    def get_item_metadata(self, item_id: str) -> Dict[str, Any]:
+        data = self.r.get(self._item_meta_key(item_id))
+        if data:
+            try:
+                return json.loads(data)
+            except:
+                pass
+        return {}
+
+    def get_popular_items(self, limit: int = 100) -> List[str]:
+        return self.r.zrevrange(self._pop_key(), 0, limit - 1)
+
+    def get_item_interactions(self, item_id: str, limit: int = 100) -> List[Dict]:
+        items = self.r.lrange(self._item_int_key(item_id), 0, limit - 1)
+        return [json.loads(i) for i in items]
+
+    def clear(self):
+        # Warning: operations like keys() can be slow on very large clusters,
+        # but useful for tests/resets.
+        keys = self.r.keys(f"{self.pfx}:*")
+        if keys:
+            self.r.delete(*keys)
+
