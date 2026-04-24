@@ -43,6 +43,13 @@ def create_admin_router(engine: AsyncEngine, prefix: str = "/recflow/admin"):
     return router
 
 
+def get_engine(request: Request) -> AsyncEngine:
+    """
+    Dependency helper to retrieve the RecFlow engine from the application state.
+    """
+    return request.app.state.recflow_engine
+
+
 class RecFlowMiddleware(BaseHTTPMiddleware):
     """
     Automatically tracks views for authenticated users passing through specific route prefixes.
