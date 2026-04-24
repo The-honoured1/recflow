@@ -8,7 +8,8 @@ class RulesEngine:
         }
         self.recency_half_life_days = 30.0
         self.property_boosts = []
-        self.active_algorithm = "sql_cooccurrence"
+        self.popularity_boost_weight = 2.0
+        self.repetition_penalty_decay = 0.8  # Deduct 20% score for every past interaction
         
     def add_event_weight(self, event_type: str, weight: float):
         self.event_weights[event_type] = weight
@@ -21,23 +22,29 @@ class RulesEngine:
     def add_metadata_boost(self, key: str, value: str, multiplier: float):
         self.property_boosts.append({"key": key, "value": value, "multiplier": multiplier})
 
-    def set_algorithm(self, algo_name: str):
-        self.active_algorithm = algo_name
+    def set_popularity_weight(self, weight: float):
+        self.popularity_boost_weight = weight
+        
+    def set_repetition_penalty(self, decay_factor: float):
+        self.repetition_penalty_decay = decay_factor
 
     def to_dict(self):
         return {
-            "active_algorithm": self.active_algorithm,
             "event_weights": self.event_weights,
             "recency_half_life_days": self.recency_half_life_days,
-            "property_boosts": self.property_boosts
+            "property_boosts": self.property_boosts,
+            "popularity_boost_weight": self.popularity_boost_weight,
+            "repetition_penalty_decay": self.repetition_penalty_decay
         }
         
     def from_dict(self, data: dict):
-        if "active_algorithm" in data:
-            self.active_algorithm = data["active_algorithm"]
         if "event_weights" in data:
             self.event_weights = data["event_weights"]
         if "recency_half_life_days" in data:
             self.set_recency_decay(float(data["recency_half_life_days"]))
         if "property_boosts" in data:
             self.property_boosts = data["property_boosts"]
+        if "popularity_boost_weight" in data:
+             self.popularity_boost_weight = float(data["popularity_boost_weight"])
+        if "repetition_penalty_decay" in data:
+             self.repetition_penalty_decay = float(data["repetition_penalty_decay"])
