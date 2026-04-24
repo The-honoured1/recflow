@@ -1,0 +1,11 @@
+pyproject.toml
+src/recflow/__init__.py
+src/recflow/recommender.py
+src/recflow.egg-info/PKG-INFO
+src/recflow.egg-info/SOURCES.txt
+src/recflow.egg-info/dependency_links.txt
+src/recflow.egg-info/requires.txt
+src/recflow.egg-info/top_level.txt
+src/recflow/algorithms/collaborative.py
+src/recflow/algorithms/content.py
+src/recflow/preprocessing/encoders.py
