@@ -1,40 +1,34 @@
 # RecFlow (Engine)
 
-A high-performance, stateful recommendation backend engine for your application. **RecFlow** manages its own tracking persistence and intelligently clusters implicit connections in real-time, giving you programmatic control over what users see.
+A high-performance, real-time stateful recommendation engine toolkit for backends. Rather than manually wrangling static arrays, RecFlow tracks behavioral events organically over SQLite/Redis and gives you **total architectural freedom to hot-swap advanced PyTorch/Deep Learning algorithms on the fly.**
 
-## Installation
-```bash
-pip install recflow
-```
+## Core Advantages
 
-## Quick Start
+1. **Pluggable Algorithm Strategy**: RecFlow ships with a robust SQL-based Co-Occurrence engine entirely for data collection fallback, but strictly exposes the `PluggableAlgorithm` interface. You can inject massive PyTorch `.pt` inference loops as native engine strategies without breaking your core application logic.
+2. **Dashboard Controls**: Provides a fully-styled Admin Dashboard (mounts natively to FastAPI and Flask) that tracks global metric analytics dynamically.
+3. **Hot-Swapping**: The administrator can instantly replace the active prediction pipeline from `sql_cooccurrence` to your custom `matrix_factorization_v2` logic straight from the backend configuration UI, all without redeploying.
 
-Initialize the engine (defaults to an embedded SQLite database `recflow.db`) and inject your business logic:
+## Quick Start (PyTorch Integration)
 
 ```python
 from recflow import Engine
+from recflow.algorithms import PluggableAlgorithm
 
-# Instantiates a live service manager tracking in memory or disk.
+class DeepTensorModel(PluggableAlgorithm):
+    def __init__(self):
+        # Load the massive external PyTorch model state
+        self.model = load_my_pytorch_model()
+        
+    def get_recommendations(self, engine, user_id, limit):
+        # 1. Ask RecFlow for the tracked interactions footprints to feed the tensor
+        history = engine.storage.get_user_history(user_id)
+        # 2. Run your specific deep learning inference
+        return self.model.predict(history)
+
+# Boot the engine in your application
 engine = Engine(storage_uri="sqlite:///recflow.db")
 
-# Programmer's Will: Add algorithmic overrides and event weights dynamically
-engine.rules.add_event_weight("purchase", 5.0)
-engine.rules.add_event_weight("view", 1.0)
-engine.rules.add_metadata_boost("type", "sponsored", 2.0)
-engine.rules.set_recency_decay(days=30)
+# Expose the custom architecture
+engine.register_algorithm("hybrid_torch_net", DeepTensorModel())
 ```
-
-Inside your application backend, just fire-and-forget events to the engine when users trigger actions:
-
-```python
-# In your application endpoints
-@app.route('/view')
-def on_user_view(user_id, item_id):
-    engine.track_interaction(user_id, item_id, event_type="view")
-```
-
-Fetch deeply personalized suggestions live:
-```python
-# The engine parses the SQL interaction graph, weights recent clicks, and outputs the result in ms.
-recs = engine.get_recommendations(user="user_123", limit=10)
-```
+The Administrator can simply click the new "hybrid_torch_net" from their frontend `/admin` dashboard component, and their webserver immediately switches over all background inferences gracefully.
