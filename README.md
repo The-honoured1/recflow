@@ -188,5 +188,5 @@ Traditional recommendation systems fail in high-scale backend environments for t
 
 ---
 
-*Built with ❤️ by the RecFlow Community.*
+*Built with ❤️ by the Me.*
 
